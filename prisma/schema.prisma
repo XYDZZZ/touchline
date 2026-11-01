@@ -1,0 +1,116 @@
+// Touchline — Football eSports Tournament Manager & Match Tracker
+// Local SQLite mirror of the Supabase schema:
+// swap this for supabase/schema.sql when deploying to Supabase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  displayName  String
+  passwordHash String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  sessions     Session[]
+  tournaments  Tournament[]
+  matchLogs    PersonalMatchLog[]
+}
+
+model Session {
+  token     String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Tournament {
+  id          String             @id @default(cuid())
+  name        String
+  format      String // 'cup' | 'league' (SQLite has no enums)
+  status      String             @default("draft") // draft | active | completed
+  createdById String
+  createdBy   User               @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+  participants Participant[]
+  matches     TournamentMatch[]
+}
+
+model Participant {
+  id           String      @id @default(cuid())
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  playerName   String
+  teamId       String // key into teams.json
+  teamName     String // denormalized for instant rendering
+  teamLogoUrl  String // denormalized
+  createdAt    DateTime    @default(now())
+
+  @@unique([tournamentId, playerName])
+}
+
+model TournamentMatch {
+  id           String        @id @default(cuid())
+  tournamentId String
+  tournament   Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  round        Int // cup: knockout round | league: matchday
+  slot         Int // position within the round
+  player1Id    String?
+  player2Id    String?
+  score1       Int?
+  score2       Int?
+  winnerId     String?
+  status       String        @default("pending") // pending | ready | completed | bye
+  matchDate    String?       // YYYY-MM-DD
+  createdAt    DateTime      @default(now())
+  goalScorers  GoalScorer[]
+
+  @@unique([tournamentId, round, slot])
+}
+
+model GoalScorer {
+  id           String          @id @default(cuid())
+  matchId      String
+  match        TournamentMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  tournamentId String
+  participantId String         // which participant scored
+  playerName   String          // denormalized
+  teamName     String          // denormalized
+  goals        Int             @default(1)
+  createdAt    DateTime        @default(now())
+
+  @@index([tournamentId])
+  @@index([matchId])
+}
+
+model PersonalMatchLog {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchDate           String // YYYY-MM-DD
+  opponentName        String
+  myTeamId            String
+  myTeamName          String
+  myTeamLogoUrl       String
+  opponentTeamId      String
+  opponentTeamName    String
+  opponentTeamLogoUrl String
+  formation           String?
+  playstyle           String?
+  result              String // win | draw | loss
+  myGoals             Int
+  opponentGoals       Int
+  evaluation          String?
+  gameTitle           String   @default("eFootball")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId, matchDate])
+}
