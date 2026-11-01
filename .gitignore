@@ -63,3 +63,5 @@ skills-lock.json
 *.db-journal
 *.sqlite
 *.sqlite3
+.vercel
+.env*

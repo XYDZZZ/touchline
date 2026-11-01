@@ -50,43 +50,46 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const winnerId =
     score1 === score2 ? null : score1 > score2 ? match.player1Id : match.player2Id;
 
-  await db.tournamentMatch.update({
-    where: { id },
-    data: { score1, score2, winnerId, status: "completed", matchDate },
+  await db.$transaction(async (tx) => {
+    await tx.tournamentMatch.update({
+      where: { id },
+      data: { score1, score2, winnerId, status: "completed", matchDate },
+    });
+
+    // Save goal scorers: delete old ones, insert new
+    if (goalScorers !== undefined) {
+      await tx.goalScorer.deleteMany({ where: { matchId: id } });
+      if (goalScorers.length > 0) {
+        await tx.goalScorer.createMany({
+          data: goalScorers.map((g) => ({
+            matchId: id,
+            tournamentId: match.tournamentId,
+            participantId: g.participantId,
+            playerName: g.playerName,
+            teamName: g.teamName,
+            goals: g.goals,
+          })),
+        });
+      }
+    }
+
+    // Cup: advance the winner into the next round's match
+    if (match.tournament.format === "cup" && winnerId) {
+      const next = await tx.tournamentMatch.findFirst({
+        where: { tournamentId: match.tournamentId, round: match.round + 1, slot: match.slot >> 1 },
+      });
+      if (next) {
+        const patch = match.slot % 2 === 0 ? { player1Id: winnerId } : { player2Id: winnerId };
+        const p1 = "player1Id" in patch ? winnerId : next.player1Id;
+        const p2 = "player2Id" in patch ? winnerId : next.player2Id;
+        await tx.tournamentMatch.update({
+          where: { id: next.id },
+          data: { ...patch, status: p1 && p2 ? "ready" : "pending" },
+        });
+      }
+    }
   });
 
-  // Save goal scorers: delete old ones, insert new
-  if (goalScorers !== undefined) {
-    await db.goalScorer.deleteMany({ where: { matchId: id } });
-    if (goalScorers.length > 0) {
-      await db.goalScorer.createMany({
-        data: goalScorers.map((g) => ({
-          matchId: id,
-          tournamentId: match.tournamentId,
-          participantId: g.participantId,
-          playerName: g.playerName,
-          teamName: g.teamName,
-          goals: g.goals,
-        })),
-      });
-    }
-  }
-
-  // Cup: advance the winner into the next round's match
-  if (match.tournament.format === "cup" && winnerId) {
-    const next = await db.tournamentMatch.findFirst({
-      where: { tournamentId: match.tournamentId, round: match.round + 1, slot: match.slot >> 1 },
-    });
-    if (next) {
-      const patch = match.slot % 2 === 0 ? { player1Id: winnerId } : { player2Id: winnerId };
-      const p1 = "player1Id" in patch ? winnerId : next.player1Id;
-      const p2 = "player2Id" in patch ? winnerId : next.player2Id;
-      await db.tournamentMatch.update({
-        where: { id: next.id },
-        data: { ...patch, status: p1 && p2 ? "ready" : "pending" },
-      });
-    }
-  }
-
   return NextResponse.json({ ok: true });
+
 }
