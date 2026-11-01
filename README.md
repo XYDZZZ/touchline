@@ -104,15 +104,24 @@ touchline/
 │   ├── components/     # Komponen UI (bracket, klasemen, form, dll)
 │   ├── data/           # 54 tim + logo (teams.json)
 │   └── lib/            # Logika: engine bracket, klasemen, auth, database
-├── prisma/schema.prisma  # Skema database
-├── db/custom.db          # Database SQLite (berisi data demo)
+├── prisma/schema.prisma  # Skema database (PostgreSQL / Supabase)
 └── package.json
 ```
 
 ---
 
-## 8. Catatan Teknis
+## 8. Deploy ke Vercel (Online)
 
-- **Data tersimpan lokal** di `db/custom.db` (SQLite) — tidak perlu install MySQL/Postgres. Semua data hanya ada di komputer Anda.
-- Skema database di `prisma/schema.prisma` adalah versi lokal dari skema **Supabase** (`User, Tournament, Participant, TournamentMatch, PersonalMatchLog`) — jika nanti ingin online dengan akun multi-user, tinggal dipindah ke Supabase + deploy ke Vercel.
-- Kode seluruhnya TypeScript, jalankan `npm run lint` untuk cek kualitas kode.
+1. **Siapkan Database PostgreSQL Gratis**:
+   - Buat project di [Supabase](https://supabase.com) atau [Neon.tech](https://neon.tech).
+   - Salin **Connection String (URI)** database Anda.
+2. **Push Skema Database ke Cloud**:
+   - Atur sementara `DATABASE_URL` di file `.env` dengan URI PostgreSQL Anda.
+   - Jalankan `npm run db:push` untuk membuat semua tabel otomatis.
+3. **Hubungkan ke Vercel**:
+   - Buka dashboard [Vercel](https://vercel.com) -> **Add New Project**.
+   - Import repository GitHub ini (`XYDZZZ/touchline`).
+   - Di bagian **Environment Variables**, tambahkan:
+     - `DATABASE_URL` = *Connection String PostgreSQL Anda*
+   - Klik **Deploy**. Selesai!
+
