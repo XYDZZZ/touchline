@@ -54,6 +54,9 @@ prompt
 server.log
 # Skills directory
 /skills/
+/.agents/
+/agent/
+skills-lock.json
 
 # SQLite databases
 *.db
